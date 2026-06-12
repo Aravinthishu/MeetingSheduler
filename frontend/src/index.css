@@ -1,0 +1,23 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { @apply bg-navy-900 text-white; }
+  * { @apply border-white/10; }
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { @apply bg-navy-800; }
+  ::-webkit-scrollbar-thumb { @apply bg-blue-dark rounded-full; }
+}
+
+@layer components {
+  .glass { @apply bg-navy-800/80 backdrop-blur-sm border border-white/10; }
+  .card { @apply bg-navy-800 border border-white/10 rounded-xl; }
+  .input-base {
+    @apply w-full bg-navy-700 border border-white/10 rounded-lg px-3 py-2.5
+    text-sm text-white placeholder-white/30
+    focus:outline-none focus:border-blue-primary/60 focus:ring-1 focus:ring-blue-primary/30
+    transition-all duration-200;
+  }
+}
