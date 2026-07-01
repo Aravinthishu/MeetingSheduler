@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Welcome to MeetEZ</title>
+</head>
+<body style="margin:0;padding:0;background:#0f1623;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
+
+  <span style="display:none;font-size:1px;color:#0f1623;max-height:0;overflow:hidden;">
+    Welcome to MeetEZ, {{ name }}! Your account is ready.
+  </span>
+
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0f1623;padding:40px 16px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+
+          <!-- Logo -->
+          <tr>
+            <td style="padding-bottom:32px;text-align:center;">
+              <table cellpadding="0" cellspacing="0" border="0" align="center">
+                <tr>
+                  <td style="background:linear-gradient(135deg,#378ADD,#1a56a8);border-radius:14px;padding:10px 22px;">
+                    <span style="color:#ffffff;font-size:18px;font-weight:700;letter-spacing:1px;">MeetEZ</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Card -->
+          <tr>
+            <td style="background:#1a2235;border-radius:20px;border:1px solid rgba(255,255,255,0.08);overflow:hidden;">
+
+              <!-- Top bar -->
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr><td height="4" style="background:linear-gradient(90deg,#378ADD,#60a5fa);font-size:0;">&nbsp;</td></tr>
+              </table>
+
+              <div style="padding:36px 40px;">
+
+                <!-- Icon + Title -->
+                <div style="text-align:center;margin-bottom:28px;">
+                  <table cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 16px;">
+                    <tr>
+                      <td width="60" height="60" align="center" valign="middle" style="background:rgba(55,138,221,0.15);border-radius:50%;font-size:28px;line-height:60px;">👋</td>
+                    </tr>
+                  </table>
+                  <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;">Welcome to MeetEZ!</h1>
+                  <p style="margin:8px 0 0;color:rgba(255,255,255,0.5);font-size:14px;">Your account has been created</p>
+                </div>
+
+                <!-- Greeting -->
+                <p style="margin:0 0 24px;color:rgba(255,255,255,0.7);font-size:15px;line-height:1.6;text-align:center;">
+                  Hi <strong style="color:#ffffff;">{{ name }}</strong>, your MeetEZ account is ready. Use the credentials below to log in.
+                </p>
+
+                <!-- Credentials Box -->
+                <table width="100%" cellpadding="0" cellspacing="0" style="background:#0f1623;border-radius:14px;border:1px solid rgba(255,255,255,0.06);margin-bottom:24px;">
+                  <tr>
+                    <td style="padding:24px 28px;">
+                      <p style="margin:0 0 18px;color:#378ADD;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;">Your Credentials</p>
+                      <table width="100%" cellpadding="0" cellspacing="0">
+                        <tr>
+                          <td style="padding-bottom:16px;">
+                            <span style="color:rgba(255,255,255,0.4);font-size:12px;display:block;margin-bottom:4px;">USERNAME</span>
+                            <span style="color:#ffffff;font-size:16px;font-weight:700;font-family:monospace;background:rgba(55,138,221,0.1);padding:6px 12px;border-radius:6px;display:inline-block;">{{ username }}</span>
+                          </td>
+                        </tr>
+                        <tr>
+                          <td style="padding-bottom:4px;">
+                            <span style="color:rgba(255,255,255,0.4);font-size:12px;display:block;margin-bottom:4px;">PASSWORD</span>
+                            <span style="color:#ffffff;font-size:16px;font-weight:700;font-family:monospace;background:rgba(55,138,221,0.1);padding:6px 12px;border-radius:6px;display:inline-block;">{{ password }}</span>
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                </table>
+
+                <!-- CTA Button -->
+                <table cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 28px;">
+                  <tr>
+                    <td style="background:linear-gradient(135deg,#378ADD,#2868b8);border-radius:10px;">
+                      <a href="{{ login_url }}" target="_blank"
+                         style="display:inline-block;padding:14px 34px;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;letter-spacing:0.2px;">
+                        Login to MeetEZ →
+                      </a>
+                    </td>
+                  </tr>
+                </table>
+
+                <!-- Security note -->
+                <p style="margin:0;color:rgba(255,255,255,0.35);font-size:12px;line-height:1.6;text-align:center;">
+                  Please change your password after your first login. Keep your credentials safe and do not share them.
+                </p>
+
+              </div>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding:24px 0;text-align:center;">
+              <p style="margin:0;color:rgba(255,255,255,0.2);font-size:12px;">MeetEZ · Sent automatically · Do not reply</p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

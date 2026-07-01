@@ -50,14 +50,30 @@ INSTALLED_APPS = [
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
+    "https://meeting.planez.in",   # your frontend domain
+    "http://meeting.planez.in",
 ]
 
+# Critical — allows the Authorization header to be sent cross-origin
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',          # ← this is what carries your token
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
+
+CORS_ALLOW_CREDENTIALS = True
+
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.common.CommonMiddleware',
-
-    'corsheaders.middleware.CorsMiddleware', 
+    'django.middleware.common.CommonMiddleware', 
 
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -89,23 +105,23 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
-}
-
 # DATABASES = {
 #     'default': {
-#         'ENGINE': 'django.db.backends.mysql',
-#         'NAME': config('DB_NAME', default='meetsync'),
-#         'USER': config('DB_USER', default='root'),
-#         'PASSWORD': config('DB_PASSWORD', default=''),
-#         'HOST': config('DB_HOST', default='localhost'),
-#         'PORT': config('DB_PORT', default='3306'),
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': BASE_DIR / 'db.sqlite3',
 #     }
 # }
+
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': config('DB_NAME', default='meetsync'),
+        'USER': config('DB_USER', default='root'),
+        'PASSWORD': config('DB_PASSWORD', default=''),
+        'HOST': config('DB_HOST', default='localhost'),
+        'PORT': config('DB_PORT', default='3306'),
+    }
+}
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
@@ -122,14 +138,18 @@ REST_FRAMEWORK = {
 from celery.schedules import crontab
 
 CELERY_BEAT_SCHEDULE = {
+    # Run auto_start first so meetings move to in_progress
+    # before auto_release tries to cancel them
     'auto-start-meetings': {
         'task': 'meetings.tasks.auto_start_meetings',
-        'schedule': 60.0,  # every 60 seconds
+        'schedule': 60.0,
     },
+    # Then complete any that have run their course
     'auto-complete-meetings': {
         'task': 'meetings.tasks.auto_complete_meetings',
         'schedule': 60.0,
     },
+    # Finally release no-shows (only affects still-scheduled meetings)
     'auto-release-no-shows': {
         'task': 'meetings.tasks.auto_release_no_shows',
         'schedule': 60.0,
@@ -137,26 +157,28 @@ CELERY_BEAT_SCHEDULE = {
 }
 
 # Celery
-CELERY_BROKER_URL = "redis://localhost:6379/0"
+CELERY_BROKER_URL = config('CELERY_BROKER_URL', default='redis://localhost:6379/0')
 CELERY_RESULT_BACKEND = CELERY_BROKER_URL
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
-CELERY_BROKER_URL = 'memory://'          # <-- add this
-CELERY_RESULT_BACKEND = 'cache+memory://' # <-- add this
+CELERY_TIMEZONE = 'Asia/Kolkata'
+CELERY_ENABLE_UTC = False                    # keep False — you're using IST
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True  # silence the deprecation warning
+
+FRONTEND_URL = config('CORS_ALLOWED_ORIGIN', default='http://localhost:5173')
 
 
 # Email
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-# EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER="aravintharavinth6369@gmail.com"
-EMAIL_HOST_PASSWORD="dvzp fykl xtow iqmw"   # the 16-char app password
+EMAIL_HOST_USER=config('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD=config('EMAIL_HOST_PASSWORD')   # the 16-char app password
 
 
 # settings.py
-CELERY_TASK_ALWAYS_EAGER = True        # Run tasks synchronously inline
+# CELERY_TASK_ALWAYS_EAGER = True        # Run tasks synchronously inline
 CELERY_TASK_EAGER_PROPAGATES = False   # Don't raise task exceptions to the caller
 
 

@@ -1,44 +1,77 @@
-import { useState, useEffect, createContext, useContext } from 'react'
-import { authApi } from '../api/client'
+import { createContext, useContext, useState, useCallback, useEffect } from 'react'
+import api from '../api/client'
 
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState(() => {
+    try {
+      const stored = localStorage.getItem('user')
+      const token = localStorage.getItem('token')
+      // Only restore user if token also exists
+      if (stored && token) return JSON.parse(stored)
+      return null
+    } catch {
+      return null
+    }
+  })
 
+  // On mount, verify the stored token is still valid with the server
   useEffect(() => {
     const token = localStorage.getItem('token')
-    if (!token) { setLoading(false); return }
-    authApi.me()
-      .then(r => setUser(r.data))
-      .catch(() => localStorage.removeItem('token'))
-      .finally(() => setLoading(false))
+    if (!token) {
+      setUser(null)
+      return
+    }
+    // Quietly verify — if 401, clear everything
+    api.get('/auth/me/')
+      .then(res => {
+        // Update user data from server in case is_staff changed etc.
+        const freshUser = res.data
+        localStorage.setItem('user', JSON.stringify(freshUser))
+        setUser(freshUser)
+      })
+      .catch(err => {
+        if (err.response?.status === 401) {
+          console.warn('[Auth] Token invalid on mount — clearing session')
+          localStorage.removeItem('token')
+          localStorage.removeItem('user')
+          setUser(null)
+        }
+        // Network error — keep existing user state, don't force logout
+      })
   }, [])
 
-  const login = async (username, password) => {
-    const r = await authApi.login({ username, password })
-    localStorage.setItem('token', r.data.token)
-    setUser(r.data.user)
-    return r.data.user
-  }
+  const login = useCallback(async (username, password) => {
+    const res = await api.post('/auth/login/', { username, password })
+    const { token, user: userData } = res.data
+    localStorage.setItem('token', token)
+    localStorage.setItem('user', JSON.stringify(userData))
+    setUser(userData)
+    return userData
+  }, [])
 
-  const logout = async () => {
-    try { await authApi.logout() } catch {}
+  const logout = useCallback(async () => {
+    try { await api.post('/auth/logout/') } catch {}
     localStorage.removeItem('token')
+    localStorage.removeItem('user')
     setUser(null)
-  }
-
-  const refreshUser = async () => {
-    const r = await authApi.me()
-    setUser(r.data)
-  }
+  }, [])
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, refreshUser }}>
+    <AuthContext.Provider value={{
+      user,
+      isAdmin: user?.is_staff === true,
+      login,
+      logout,
+    }}>
       {children}
     </AuthContext.Provider>
   )
 }
 
-export const useAuth = () => useContext(AuthContext)
+export function useAuth() {
+  const ctx = useContext(AuthContext)
+  if (!ctx) throw new Error('useAuth must be used inside AuthProvider')
+  return ctx
+}

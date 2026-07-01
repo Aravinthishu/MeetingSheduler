@@ -1,25 +1,20 @@
-import { useParams, useNavigate } from "react-router-dom";
+// MeetingDetail.jsx - With Theme Support
+import { useParams, useNavigate } from "react-router-dom"
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useQuery } from "@tanstack/react-query";
-import { meetingsApi } from "../api/client";
-import { format } from "date-fns";
-import Badge from "../components/ui/Badge";
-import Button from "../components/ui/Button";
-import Card from "../components/ui/Card";
-import { useMeetingAction } from "../hooks/useMeetings";
+import { useQuery } from "@tanstack/react-query"
+import { meetingsApi } from "../api/client"
+import { format } from "date-fns"
+import Badge from "../components/ui/Badge"
+import Button from "../components/ui/Button"
+import Card from "../components/ui/Card"
+import { useMeetingAction } from "../hooks/useMeetings"
 import {
-  ArrowLeft,
-  Clock,
-  Users,
-  Calendar,
-  LogIn,
-  StopCircle,
-  XCircle,
-  RefreshCw,
-  UserCheck,
-} from "lucide-react";
-import toast from "react-hot-toast";
+  ArrowLeft, Clock, Users, Calendar,
+  StopCircle, XCircle, RefreshCw, UserCheck, MapPin, FileText,
+} from "lucide-react"
+import toast from "react-hot-toast"
+
 function ExtendButton({ meetingId }) {
   const [open, setOpen] = useState(false)
   const [minutes, setMinutes] = useState(30)
@@ -31,8 +26,8 @@ function ExtendButton({ meetingId }) {
       qc.invalidateQueries({ queryKey: ['meeting', String(meetingId)] })
       qc.invalidateQueries({ queryKey: ['meetings'] })
       toast.success(`Extended to ${data.data.new_end_time}`)
-      if (data.data.conflicts?.length) {
-        toast(`⚠️ Conflict email sent to next meeting's organizer`, { icon: '📧' })
+      if (data.data.postponed?.length) {
+        toast(`⚠️ ${data.data.postponed.length} meeting(s) postponed`, { icon: '📧' })
       }
       setOpen(false)
     },
@@ -40,161 +35,197 @@ function ExtendButton({ meetingId }) {
   })
 
   if (!open) return (
-    <Button icon={Clock} variant="ghost" onClick={() => setOpen(true)}>Extend Time</Button>
+    <Button icon={Clock} variant="ghost" onClick={() => setOpen(true)}>
+      <span className="hidden sm:inline">Extend Time</span>
+      <span className="sm:hidden">Extend</span>
+    </Button>
   )
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       {[15, 30, 45, 60].map(m => (
         <button
           key={m}
           onClick={() => setMinutes(m)}
-          className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all
-            ${minutes === m ? 'bg-blue-primary border-blue-primary text-white' : 'bg-navy-700 border-white/10 text-white/60 hover:border-blue-primary/40'}`}
+          className={`px-2 sm:px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all
+            ${minutes === m
+              ? 'bg-blue-primary border-blue-primary text-white'
+              : 'bg-[#f7fafc] border-[#e2e8f0] text-[#4a5568] hover:border-blue-primary/40 dark:bg-navy-700 dark:border-white/10 dark:text-white/60 dark:hover:border-blue-primary/40'
+            }`}
         >
           +{m}m
         </button>
       ))}
       <Button size="sm" loading={extend.isPending} onClick={() => extend.mutate()}>Confirm</Button>
-      <button onClick={() => setOpen(false)} className="text-white/30 hover:text-white text-xs">✕</button>
+      <button onClick={() => setOpen(false)} className="text-[#a0aec0] hover:text-[#1a202c] text-xs dark:text-white/30 dark:hover:text-white">✕</button>
+    </div>
+  )
+}
+
+function InfoRow({ icon: Icon, label, value }) {
+  if (!value) return null
+  return (
+    <div className="flex items-start sm:items-center gap-3 py-3 border-b border-[#e2e8f0] last:border-0 dark:border-white/5">
+      <div className="w-7 h-7 rounded-lg bg-[#f7fafc] flex items-center justify-center shrink-0 mt-0.5 sm:mt-0 dark:bg-navy-700">
+        <Icon size={13} className="text-blue-600 dark:text-blue-light" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-[10px] sm:text-xs text-[#a0aec0] uppercase tracking-wider dark:text-white/40">{label}</p>
+        <p className="text-xs sm:text-sm font-medium text-[#1a202c] mt-0.5 break-words dark:text-white">{value}</p>
+      </div>
     </div>
   )
 }
 
 export default function MeetingDetail() {
-  const { id } = useParams();
-  const navigate = useNavigate();
-  const { start, end, cancel, checkin } = useMeetingAction();
+  const { id } = useParams()
+  const navigate = useNavigate()
+  const { start, end, cancel } = useMeetingAction()
 
   const { data: m, isLoading } = useQuery({
     queryKey: ["meeting", id],
-    queryFn: () => meetingsApi.get(id).then((r) => r.data),
-  });
+    queryFn: () => meetingsApi.get(id).then(r => r.data),
+  })
 
-  if (isLoading)
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-2 border-blue-primary border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-
-  if (!m) return <div className="p-6 text-white/40">Meeting not found</div>;
-
-  const InfoRow = ({ icon: Icon, label, value }) => (
-    <div className="flex items-center gap-3 py-3 border-b border-white/5 last:border-0">
-      <div className="w-7 h-7 rounded-lg bg-navy-700 flex items-center justify-center shrink-0">
-        <Icon size={13} className="text-blue-light" />
-      </div>
-      <div className="flex-1">
-        <p className="text-xs text-white/40">{label}</p>
-        <p className="text-sm font-medium text-white mt-0.5">{value}</p>
-      </div>
+  if (isLoading) return (
+    <div className="flex items-center justify-center h-64">
+      <div className="w-8 h-8 border-2 border-blue-primary border-t-transparent rounded-full animate-spin" />
     </div>
-  );
+  )
+
+  if (!m) return <div className="p-6 text-[#a0aec0] dark:text-white/40">Meeting not found</div>
+
+  const createdBy = m.organizer_detail
+    ? `${m.organizer_detail.first_name || ''} ${m.organizer_detail.last_name || m.organizer_detail.username}`.trim()
+    : '—'
+
+  const conductor = m.conductor_detail
+    ? `${m.conductor_detail.first_name || ''} ${m.conductor_detail.last_name || m.conductor_detail.username}`.trim()
+    : `${m.organizer_detail.first_name || ''} ${m.organizer_detail.last_name || m.organizer_detail.username}`.trim()
 
   return (
-    <div className="p-6 max-w-2xl animate-fade-in">
+    <div className="p-3 sm:p-4 md:p-6 max-w-full md:max-w-2xl lg:max-w-4xl mx-auto animate-fade-in">
       <button
         onClick={() => navigate(-1)}
-        className="flex items-center gap-2 text-sm text-white/40 hover:text-white mb-6 transition-colors"
+        className="flex items-center gap-2 text-xs sm:text-sm text-[#a0aec0] hover:text-[#1a202c] mb-4 sm:mb-6 transition-colors dark:text-white/40 dark:hover:text-white"
       >
-        <ArrowLeft size={14} />
-        Back
+        <ArrowLeft size={14} /> Back
       </button>
 
-      <div className="flex items-start justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">
-            {m.title}
-          </h1>
-          <p className="text-sm text-white/40 mt-1">{m.team_detail?.name}</p>
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4 sm:mb-6">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold text-[#1a202c] tracking-tight break-words dark:text-white">{m.title}</h1>
+          {m.team_detail && (
+            <p className="text-xs sm:text-sm text-[#a0aec0] mt-1 dark:text-white/40">
+              {`${m.conductor_detail?.first_name || ""} ${m.conductor_detail?.last_name || ""} || ${m.organizer_detail?.first_name || ""} ${m.organizer_detail?.last_name || ""}`}
+            </p>
+          )}
         </div>
-        <Badge status={m.status} pulse={m.status === "in_progress"} />
+        <div className="self-start">
+          <Badge status={m.status} pulse={m.status === 'in_progress'} />
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 mb-4">
-        <Card>
+      {/* Room banner */}
+      {m.room_detail && (
+        <Card className="mb-4 p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center shrink-0 dark:bg-blue-500/20">
+              <MapPin size={14} className="text-blue-600 dark:text-blue-400" />
+            </div>
+            <div>
+              <p className="text-xs text-[#a0aec0] dark:text-white/40">Room</p>
+              <p className="text-sm font-semibold text-[#1a202c] dark:text-white">{m.room_detail.name}</p>
+              {m.room_detail.location && (
+                <p className="text-xs text-[#a0aec0] dark:text-white/30">{m.room_detail.location}</p>
+              )}
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Details grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        {/* Schedule */}
+        <Card className="p-4">
+          <h3 className="text-xs font-semibold text-[#a0aec0] uppercase tracking-wider mb-3 dark:text-white/40">Schedule</h3>
           <InfoRow
             icon={Calendar}
             label="Date"
-            value={format(new Date(m.date), "EEEE, dd MMMM yyyy")}
+            value={format(new Date(m.date), 'EEEE, dd MMMM yyyy')}
           />
           <InfoRow
             icon={Clock}
             label="Time"
-            value={`${format(new Date(`2000-01-01T${m.start_time}`), "h:mm a")} → ${m.end_time ? format(new Date(`2000-01-01T${m.end_time}`), "h:mm a") : "Open-ended"}`}
+            value={`${format(new Date(`2000-01-01T${m.start_time}`), 'h:mm a')} → ${m.end_time
+                ? format(new Date(`2000-01-01T${m.end_time}`), 'h:mm a')
+                : 'Open-ended'
+              }`}
           />
+          {m.recurrence !== 'none' && (
+            <InfoRow
+              icon={RefreshCw}
+              label="Recurrence"
+              value={m.recurrence.charAt(0).toUpperCase() + m.recurrence.slice(1)}
+            />
+          )}
           <InfoRow
-            icon={RefreshCw}
-            label="Recurrence"
-            value={
-              m.recurrence === "none"
-                ? "No recurrence"
-                : `${m.recurrence.charAt(0).toUpperCase() + m.recurrence.slice(1)}`
-            }
+            icon={Calendar}
+            label="Created"
+            value={m.created_at ? format(new Date(m.created_at), 'dd MMM yyyy, h:mm a') : null}
           />
         </Card>
 
-        <Card>
-          <InfoRow
-            icon={Users}
-            label="Organizer"
-            value={`${m.organizer_detail?.first_name || ""} ${m.organizer_detail?.last_name || m.organizer_detail?.username}`}
-          />
-          <InfoRow
-            icon={LogIn}
-            label="Check-in Status"
-            value={
-              m.checked_in
-                ? `Checked in at ${m.checked_in_at ? format(new Date(m.checked_in_at), "h:mm a") : "—"}`
-                : "Not checked in"
-            }
-          />
-          <InfoRow
-            icon={Clock}
-            label="Auto-release"
-            value={`${m.auto_release_minutes} min after start`}
-          />
+        {/* People */}
+        <Card className="p-4">
+          <h3 className="text-xs font-semibold text-[#a0aec0] uppercase tracking-wider mb-3 dark:text-white/40">People</h3>
           <InfoRow
             icon={Users}
             label="Created By"
-            value={`${m.organizer_detail?.first_name || ""} ${m.organizer_detail?.last_name || m.organizer_detail?.username}`}
+            value={createdBy}
           />
-          {m.conductor_detail && (
+          {conductor && (
             <InfoRow
               icon={UserCheck}
-              label="Conductor"
-              value={`${m.conductor_detail?.first_name || ""} ${m.conductor_detail?.last_name || m.conductor_detail?.username}`}
+              label="Organizer"
+              value={conductor}
             />
           )}
         </Card>
       </div>
 
+      {/* Description */}
       {m.description && (
-        <Card className="mb-4">
-          <h3 className="text-xs font-semibold text-white/40 uppercase tracking-wider mb-2">
-            Description
-          </h3>
-          <p className="text-sm text-white/70 leading-relaxed">
-            {m.description}
-          </p>
+        <Card className="mb-4 p-4">
+          <div className="flex items-start gap-3">
+            <FileText size={14} className="text-[#a0aec0] mt-0.5 shrink-0 dark:text-white/40" />
+            <div className="flex-1 min-w-0">
+              <h3 className="text-xs font-semibold text-[#a0aec0] uppercase tracking-wider mb-2 dark:text-white/40">Description</h3>
+              <p className="text-xs sm:text-sm text-[#4a5568] leading-relaxed break-words dark:text-white/70">{m.description}</p>
+            </div>
+          </div>
         </Card>
       )}
 
+      {/* Participants */}
       {m.participants?.length > 0 && (
-        <Card className="mb-4">
-          <h3 className="text-xs font-semibold text-white/40 uppercase tracking-wider mb-3">
-            Participants
-          </h3>
-          <div className="space-y-2">
-            {m.participants.map((p) => (
-              <div key={p.id} className="flex items-center gap-3">
-                <div className="w-7 h-7 rounded-full bg-blue-darker flex items-center justify-center text-xs font-bold text-blue-light">
-                  {p.name[0].toUpperCase()}
+        <Card className="mb-4 p-4">
+          <div className="flex items-center gap-3 mb-3">
+            <Users size={14} className="text-[#a0aec0] dark:text-white/40" />
+            <h3 className="text-xs font-semibold text-[#a0aec0] uppercase tracking-wider dark:text-white/40">
+              Participants ({m.participants.length})
+            </h3>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {m.participants.map(p => (
+              <div key={p.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-[#f7fafc] border border-[#e2e8f0] dark:bg-navy-800/50 dark:border-white/5">
+                <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center text-xs font-bold text-blue-700 shrink-0 dark:bg-blue-darker dark:text-blue-light">
+                  {p.name.charAt(0).toUpperCase()}
                 </div>
-                <div>
-                  <p className="text-sm text-white">{p.name}</p>
-                  <p className="text-xs text-white/40">{p.email}</p>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-[#1a202c] truncate dark:text-white">{p.name}</p>
+                  <p className="text-xs text-[#a0aec0] truncate dark:text-white/40">{p.email}</p>
                 </div>
               </div>
             ))}
@@ -203,56 +234,38 @@ export default function MeetingDetail() {
       )}
 
       {/* Actions */}
-      <div className="flex gap-2 flex-wrap">
-        {m.status === "scheduled" && (
+      <div className="flex flex-wrap gap-2">
+        {m.status === 'scheduled' && (
           <>
             <Button
-              icon={LogIn}
-              variant="success"
-              onClick={() => {
-                checkin.mutate(m.id);
-                toast.success("Checked in!");
-              }}
-            >
-              Check In
-            </Button>
-            <Button
               icon={StopCircle}
-              onClick={() => {
-                start.mutate(m.id);
-                toast.success("Meeting started!");
-              }}
+              onClick={() => { start.mutate(m.id); toast.success('Meeting started!') }}
             >
               Start Meeting
             </Button>
             <Button
               icon={XCircle}
               variant="danger"
-              onClick={() => {
-                cancel.mutate(m.id);
-                navigate("/meetings");
-              }}
+              onClick={() => { cancel.mutate(m.id); navigate('/meetings') }}
             >
               Cancel
             </Button>
           </>
         )}
-        {m.status === "in_progress" && m.end_time && (
+        {m.status === 'in_progress' && m.end_time && (
           <>
             <Button
               icon={StopCircle}
               variant="danger"
-              onClick={() => {
-                end.mutate(m.id);
-                toast.success("Meeting ended");
-              }}
+              onClick={() => { end.mutate(m.id); toast.success('Meeting ended') }}
             >
-              End Meeting Early
+              <span className="hidden sm:inline">End Meeting Early</span>
+              <span className="sm:hidden">End</span>
             </Button>
             <ExtendButton meetingId={m.id} />
           </>
         )}
       </div>
     </div>
-  );
+  )
 }

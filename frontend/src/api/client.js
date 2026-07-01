@@ -1,23 +1,56 @@
 import axios from 'axios'
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000/api',
+  baseURL: import.meta.env.VITE_API_URL || "http://apimeeting.planez.in/api",
 })
 
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token')
-  if (token) config.headers.Authorization = `Token ${token}`
-  return config
-})
+// api.interceptors.request.use((config) => {
+//   const token = localStorage.getItem('token')
+//   if (token) config.headers.Authorization = `Token ${token}`
+//   return config
+// })
 
-api.interceptors.response.use(
-  (res) => res,
-  (err) => {
-    if (err.response?.status === 401) {
-      localStorage.removeItem('token')
-      window.location.href = '/login'
+// api.interceptors.response.use(
+//   (res) => res,
+//   (err) => {
+//     if (err.response?.status === 401) {
+//       localStorage.removeItem('token')
+//       window.location.href = '/login'
+//     }
+//     return Promise.reject(err)
+//   }
+// )
+
+// Request interceptor — attach token to every request
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token')
+    if (token) {
+      config.headers.Authorization = `Token ${token}`
     }
-    return Promise.reject(err)
+    return config
+  },
+  (error) => Promise.reject(error)
+)
+
+// Response interceptor — only redirect on 401 if we actually have a token
+// (prevents redirect loop when token is legitimately missing)
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      const token = localStorage.getItem('token')
+      // Only force logout if we had a token that got rejected
+      // If no token, just let the query fail normally — AuthProvider handles it
+      if (token) {
+        console.warn('[API] 401 with token — clearing session')
+        localStorage.removeItem('token')
+        localStorage.removeItem('user')
+        // Hard redirect to login
+        window.location.href = '/login'
+      }
+    }
+    return Promise.reject(error)
   }
 )
 

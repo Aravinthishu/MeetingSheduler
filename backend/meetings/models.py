@@ -83,7 +83,7 @@ class Meeting(models.Model):
 
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
-    team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name='meetings')
+    team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name='meetings', null=True, blank=True)
     organizer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='organized_meetings')
     conductor = models.ForeignKey(
         User,

@@ -4,39 +4,55 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Meeting Started – MeetSync</title>
+  <title>Meeting Started – MeetEZ</title>
 </head>
 <body style="margin:0;padding:0;background:#0f1623;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0f1623;padding:40px 16px;">
+
+  <span style="display:none;font-size:1px;color:#0f1623;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;">
+    {{ meeting.title }} is live now. Head to the room.
+  </span>
+
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#0f1623;padding:40px 16px;">
     <tr>
       <td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+        <!--[if mso]>
+        <table role="presentation" align="center" width="600"><tr><td>
+        <![endif]-->
+        <table width="600" cellpadding="0" cellspacing="0" role="presentation" style="max-width:600px;width:100%;">
 
           <tr>
             <td style="padding-bottom:32px;text-align:center;">
-              <div style="display:inline-block;background:linear-gradient(135deg,#378ADD,#1a56a8);border-radius:14px;padding:10px 22px;">
-                <span style="color:#ffffff;font-size:18px;font-weight:700;letter-spacing:1px;">MeetSync</span>
-              </div>
+              <table cellpadding="0" cellspacing="0" border="0" role="presentation" align="center">
+                <tr>
+                  <td style="background-color:#378ADD;background:linear-gradient(135deg,#378ADD,#1a56a8);border-radius:14px;padding:10px 22px;">
+                    <span style="color:#ffffff;font-size:18px;font-weight:700;letter-spacing:1px;">MeetEZ</span>
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
 
           <tr>
             <td style="background:#1a2235;border-radius:20px;border:1px solid rgba(255,255,255,0.08);overflow:hidden;">
-              <div style="height:4px;background:linear-gradient(90deg,#378ADD,#60a5fa);"></div>
+              <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+                <tr><td height="4" style="background-color:#378ADD;background:linear-gradient(90deg,#378ADD,#60a5fa);font-size:0;line-height:0;">&nbsp;</td></tr>
+              </table>
 
               <div style="padding:36px 40px;">
                 <div style="text-align:center;margin-bottom:28px;">
-                  <div style="width:60px;height:60px;background:rgba(55,138,221,0.15);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-bottom:16px;">
-                    <span style="font-size:28px;">🚀</span>
-                  </div>
+                  <table cellpadding="0" cellspacing="0" border="0" role="presentation" align="center" style="margin:0 auto 16px;">
+                    <tr>
+                      <td width="60" height="60" align="center" valign="middle" style="background-color:rgba(55,138,221,0.15);border-radius:50%;font-size:28px;line-height:60px;">🚀</td>
+                    </tr>
+                  </table>
                   <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;">Meeting Has Started</h1>
                   <p style="margin:8px 0 0;color:rgba(255,255,255,0.5);font-size:14px;">Your meeting is now in progress</p>
                 </div>
 
-                <table width="100%" cellpadding="0" cellspacing="0" style="background:#0f1623;border-radius:14px;border:1px solid rgba(255,255,255,0.06);margin-bottom:24px;">
+                <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#0f1623;border-radius:14px;border:1px solid rgba(255,255,255,0.06);margin-bottom:24px;">
                   <tr>
                     <td style="padding:24px 28px;">
-                      <table width="100%" cellpadding="0" cellspacing="0">
+                      <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
                         <tr>
                           <td style="padding-bottom:12px;">
                             <span style="color:rgba(255,255,255,0.4);font-size:12px;display:block;margin-bottom:3px;">MEETING</span>
@@ -68,6 +84,17 @@
                   </tr>
                 </table>
 
+                <!-- CTA Button -->
+                <table cellpadding="0" cellspacing="0" border="0" role="presentation" align="center" style="margin:0 auto 24px;">
+                  <tr>
+                    <td style="background-color:#378ADD;background:linear-gradient(135deg,#378ADD,#60a5fa);border-radius:10px;">
+                      <a href="{{ meeting_url }}" target="_blank" style="display:inline-block;padding:14px 34px;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;letter-spacing:0.2px;">
+                        View Meeting Details →
+                      </a>
+                    </td>
+                  </tr>
+                </table>
+
                 <p style="margin:0;color:rgba(255,255,255,0.6);font-size:14px;line-height:1.6;text-align:center;">
                   Hi <strong style="color:#ffffff;">{{ recipient_name }}</strong>, the meeting is live. Join now if you haven't already!
                 </p>
@@ -77,11 +104,14 @@
 
           <tr>
             <td style="padding:24px 0;text-align:center;">
-              <p style="margin:0;color:rgba(255,255,255,0.2);font-size:12px;">MeetSync · Sent automatically · Do not reply</p>
+              <p style="margin:0;color:rgba(255,255,255,0.2);font-size:12px;">MeetEZ · Sent automatically · Do not reply</p>
             </td>
           </tr>
 
         </table>
+        <!--[if mso]>
+        </td></tr></table>
+        <![endif]-->
       </td>
     </tr>
   </table>

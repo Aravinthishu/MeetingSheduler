@@ -1,36 +1,34 @@
-/** @type {import('tailwindcss').Config} */
+// tailwind.config.js
 export default {
-  content: ['./src/**/*.{js,jsx}'],
+  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
+  darkMode: 'class', // Important: use class-based dark mode
   theme: {
     extend: {
       colors: {
+        // Existing dark theme colors (unchanged)
         navy: {
-          950: '#030812',
-          900: '#070d1a',
-          800: '#0d1626',
-          700: '#111d35',
-          600: '#162140',
-          500: '#1d2d58',
+          50: '#e8f0f9',
+          100: '#c5d6ed',
+          200: '#9fb8df',
+          300: '#7999d1',
+          400: '#5a80c6',
+          500: '#3b67bb',
+          600: '#2e5299',
+          700: '#1f3d73',
+          800: '#0f244a',
+          900: '#0a1a33',
         },
         blue: {
-          primary: '#378ADD',
-          light: '#85B7EB',
-          lighter: '#B5D4F4',
-          dark: '#185FA5',
-          darker: '#0C447C',
+          primary: '#388add',
+          light: '#6bb3f0',
+          lighter: '#c2e0ff',
+          dark: '#2a6bb0',
+          darker: '#1a4a80',
         },
+        // Light theme colors (optional - can just use Tailwind built-in colors)
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
-      },
-      animation: {
-        'pulse-slow': 'pulse 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-        'fade-in': 'fadeIn 0.3s ease-out',
-        'slide-up': 'slideUp 0.3s ease-out',
-      },
-      keyframes: {
-        fadeIn: { '0%': { opacity: 0 }, '100%': { opacity: 1 } },
-        slideUp: { '0%': { opacity: 0, transform: 'translateY(8px)' }, '100%': { opacity: 1, transform: 'translateY(0)' } },
       },
     },
   },

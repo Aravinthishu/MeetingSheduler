@@ -1,10 +1,12 @@
+// src/components/ui/Button.jsx
 const variants = {
-  primary: 'bg-blue-dark hover:bg-blue-primary text-blue-lighter border-blue-dark/50',
-  ghost: 'bg-transparent hover:bg-white/5 text-white/70 hover:text-white border-white/10',
-  danger: 'bg-red-500/10 hover:bg-red-500/20 text-red-400 border-red-500/20',
-  success: 'bg-green-500/10 hover:bg-green-500/20 text-green-400 border-green-500/20',
-  amber: 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border-amber-500/20',
+  primary: 'bg-[#388add] hover:bg-[#2a6bb0] text-white border-[#388add] dark:bg-blue-dark dark:hover:bg-blue-primary dark:text-blue-lighter dark:border-blue-dark/50',
+  ghost: 'bg-transparent hover:bg-[#f7fafc] text-[#4a5568] hover:text-[#1a202c] border-[#e2e8f0] dark:bg-transparent dark:hover:bg-white/5 dark:text-white/70 dark:hover:text-white dark:border-white/10',
+  danger: 'bg-red-50 hover:bg-red-100 text-red-700 border-red-200 dark:bg-red-500/10 dark:hover:bg-red-500/20 dark:text-red-400 dark:border-red-500/20',
+  success: 'bg-green-50 hover:bg-green-100 text-green-700 border-green-200 dark:bg-green-500/10 dark:hover:bg-green-500/20 dark:text-green-400 dark:border-green-500/20',
+  amber: 'bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:hover:bg-amber-500/20 dark:text-amber-400 dark:border-amber-500/20',
 }
+
 const sizes = {
   sm: 'px-3 py-1.5 text-xs',
   md: 'px-4 py-2 text-sm',

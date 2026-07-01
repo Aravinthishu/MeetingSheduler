@@ -6,15 +6,6 @@ from .models import Meeting, Waitlist
 
 FRONTEND_URL = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173').rstrip('/')
 
-# ── Add this — controls the "From" display name in all emails ─────────────────
-FROM_NAME = getattr(settings, 'EMAIL_FROM_NAME', 'MeetEZ')
-
-def _from_email():
-    """Returns 'MeetEZ <your@email.com>' format for all outgoing mail."""
-    return f"{FROM_NAME} <{settings.EMAIL_HOST_USER}>"
-
-# ─────────────────────────────────────────────────────────────────────────────
-
 
 def _meeting_url(meeting):
     return f"{FRONTEND_URL}/meetings/{meeting.id}"
@@ -47,12 +38,13 @@ def _send_to_organizer(meeting, subject, plain_body, template_name):
         html_body = render_to_string(template_name, context)
     except Exception as e:
         print(f"[EMAIL] Template error for {template_name}: {e}")
+        # Fall back to plain text if template is missing
         html_body = f"<p>{full_plain_body.replace(chr(10), '<br>')}</p>"
 
     email = EmailMultiAlternatives(
         subject=subject,
         body=full_plain_body,
-        from_email=_from_email(),   # ← "MeetEZ <your@gmail.com>"
+        from_email=settings.EMAIL_HOST_USER,
         to=[recipient],
     )
     email.attach_alternative(html_body, "text/html")
@@ -72,6 +64,8 @@ def _meeting_summary(meeting):
     )
 
 
+# ── Booking / confirmation ────────────────────────────────────────────────────
+
 @shared_task
 def send_booking_confirmation(meeting_id):
     try:
@@ -90,13 +84,12 @@ def send_booking_confirmation(meeting_id):
         print(f"[TASK] send_booking_confirmation ERROR: {e}")
 
 
-@shared_task(bind=True, max_retries=3, default_retry_delay=3)
-def send_welcome_email(self, user_id, password):
+@shared_task
+def send_welcome_email(user_id, password):
     try:
         from django.contrib.auth.models import User
         user = User.objects.get(id=user_id)
         if not user.email:
-            print(f"[TASK] send_welcome_email: user {user_id} has no email, skipping")
             return
 
         name = user.get_full_name() or user.username
@@ -124,20 +117,14 @@ def send_welcome_email(self, user_id, password):
         email = EmailMultiAlternatives(
             subject=subject,
             body=plain_body,
-            from_email=_from_email(),   # ← "MeetEZ <your@gmail.com>"
+            from_email=settings.EMAIL_HOST_USER,
             to=[user.email],
         )
         email.attach_alternative(html_body, "text/html")
         email.send(fail_silently=False)
         print(f"[TASK] Welcome email sent to {user.email}")
-
-    except Exception as exc:
-        from django.contrib.auth.models import User as U
-        if not U.objects.filter(id=user_id).exists():
-            print(f"[TASK] send_welcome_email: user {user_id} not found, retrying...")
-            raise self.retry(exc=exc, countdown=3)
-        print(f"[TASK] send_welcome_email ERROR: {exc}")
-
+    except Exception as e:
+        print(f"[TASK] send_welcome_email ERROR: {e}")
 
 @shared_task
 def send_reminder_email(meeting_id):
@@ -233,7 +220,7 @@ def notify_waitlist():
         email = EmailMultiAlternatives(
             subject="[MeetEZ] Meeting Room is now available!",
             body=plain_body,
-            from_email=_from_email(),   # ← "MeetEZ <your@gmail.com>"
+            from_email=settings.EMAIL_HOST_USER,
             to=[waitlist.organizer.email],
         )
         email.attach_alternative(html_body, "text/html")
@@ -277,7 +264,7 @@ def send_extension_conflict_email(extending_meeting_id, conflict_meeting_id, ext
         send_mail(
             f"[MeetEZ] Your meeting '{conflict.title}' has been postponed",
             body,
-            _from_email(),   # ← "MeetEZ <your@gmail.com>"
+            settings.EMAIL_HOST_USER,
             [recipient],
             fail_silently=True,
         )
@@ -285,9 +272,18 @@ def send_extension_conflict_email(extending_meeting_id, conflict_meeting_id, ext
         print(f"[TASK] send_extension_conflict_email ERROR: {e}")
 
 
+# ── Auto transition tasks ─────────────────────────────────────────────────────
+
 @shared_task
 def auto_start_meetings():
+    """
+    Run every minute via Celery Beat.
+    Finds all 'scheduled' meetings whose start_time has passed and marks
+    them 'in_progress', then emails the organizer.
+    Uses only time comparisons — no naive/aware mixing.
+    """
     from django.utils import timezone
+
     now_local = timezone.localtime(timezone.now())
     today = now_local.date()
     now_time = now_local.time().replace(second=0, microsecond=0)
@@ -297,16 +293,18 @@ def auto_start_meetings():
     meetings = Meeting.objects.filter(
         date=today,
         status='scheduled',
-        start_time__lte=now_time,
+        start_time__lte=now_time,   # start_time has passed or is now
     ).select_related('team', 'organizer', 'conductor')
 
     count = meetings.count()
     print(f"[auto_start] Found {count} meetings to start")
 
     for meeting in meetings:
-        print(f"[auto_start] Starting: '{meeting.title}' (id={meeting.id})")
+        print(f"[auto_start] Starting: '{meeting.title}' (id={meeting.id}, start={meeting.start_time})")
         meeting.status = 'in_progress'
         meeting.save(update_fields=['status', 'updated_at'])
+
+        # Send email directly (inline) — avoids delay() issues in solo worker
         try:
             send_meeting_started_email(meeting.id)
         except Exception as e:
@@ -315,7 +313,13 @@ def auto_start_meetings():
 
 @shared_task
 def auto_complete_meetings():
+    """
+    Run every minute via Celery Beat.
+    Finds all 'in_progress' meetings whose end_time has passed and marks
+    them 'completed', then emails the organizer.
+    """
     from django.utils import timezone
+
     now_local = timezone.localtime(timezone.now())
     today = now_local.date()
     now_time = now_local.time().replace(second=0, microsecond=0)
@@ -326,20 +330,22 @@ def auto_complete_meetings():
         date=today,
         status='in_progress',
         end_time__isnull=False,
-        end_time__lte=now_time,
+        end_time__lte=now_time,     # end_time has passed
     ).select_related('team', 'organizer', 'conductor')
 
     count = meetings.count()
     print(f"[auto_complete] Found {count} meetings to complete")
 
     for meeting in meetings:
-        print(f"[auto_complete] Completing: '{meeting.title}' (id={meeting.id})")
+        print(f"[auto_complete] Completing: '{meeting.title}' (id={meeting.id}, end={meeting.end_time})")
         meeting.status = 'completed'
         meeting.save(update_fields=['status', 'updated_at'])
+
         try:
             send_meeting_ended_email(meeting.id)
         except Exception as e:
             print(f"[auto_complete] Email error for meeting {meeting.id}: {e}")
+
         try:
             notify_waitlist()
         except Exception as e:
@@ -348,8 +354,14 @@ def auto_complete_meetings():
 
 @shared_task
 def auto_release_no_shows():
+    """
+    Run every minute via Celery Beat.
+    Cancels meetings that started but nobody checked in within auto_release_minutes.
+    Only acts on 'scheduled' meetings (not yet started by auto_start).
+    Runs AFTER auto_start_meetings in the beat schedule so there's no race.
+    """
     from django.utils import timezone
-    from datetime import datetime
+    from datetime import timedelta
 
     now_local = timezone.localtime(timezone.now())
     today = now_local.date()
@@ -357,6 +369,9 @@ def auto_release_no_shows():
 
     print(f"[auto_release] Running at {now_time} on {today}")
 
+    # Only check meetings that are still 'scheduled' — auto_start already
+    # moved meetings to 'in_progress', so this only catches true no-shows
+    # where auto_start hasn't fired yet (edge case) or check-in is required.
     meetings = Meeting.objects.filter(
         date=today,
         status='scheduled',
@@ -365,18 +380,22 @@ def auto_release_no_shows():
     ).select_related('team', 'organizer', 'conductor')
 
     for meeting in meetings:
+        # Calculate how many minutes past start_time we are
+        from datetime import datetime
         start_dt = datetime.combine(today, meeting.start_time)
         now_dt = datetime.combine(today, now_time)
         minutes_past = (now_dt - start_dt).seconds // 60
 
         if minutes_past >= meeting.auto_release_minutes:
-            print(f"[auto_release] No-show: '{meeting.title}' (id={meeting.id}, {minutes_past}min past)")
+            print(f"[auto_release] No-show cancelling: '{meeting.title}' (id={meeting.id}, {minutes_past}min past start)")
             meeting.status = 'cancelled'
             meeting.save(update_fields=['status', 'updated_at'])
+
             try:
                 send_cancellation_email(meeting.id)
             except Exception as e:
                 print(f"[auto_release] Email error for meeting {meeting.id}: {e}")
+
             try:
                 notify_waitlist()
             except Exception as e:

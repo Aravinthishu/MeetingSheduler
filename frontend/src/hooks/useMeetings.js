@@ -1,12 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { meetingsApi, teamsApi, usersApi } from '../api/client'
+import { meetingsApi, teamsApi, usersApi,  roomsApi} from '../api/client'
 import toast from 'react-hot-toast'
 
 export const useMeetings = (params = {}) => {
   return useQuery({
     queryKey: ['meetings', params],
     queryFn: () => meetingsApi.getAll(params).then(r => r.data),
-    refetchInterval: 30000,
+    refetchInterval: 15000,
   })
 }
 

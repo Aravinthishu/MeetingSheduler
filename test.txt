@@ -2,7 +2,7 @@
 python manage.py runserver
 
 # Terminal 2 — Celery worker (solo pool fixes the Windows crash)
-celery -A meetsync worker -l info -P solo
+celery -A backend worker -l info -P solo
 
-# Terminal 3 — Celery beat (runs the scheduled tasks every minute)
-celery -A meetsync beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+# Terminal 3 — Celery beat (runs the scheduled tasks every minute) -- optional
+celery -A backend beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler

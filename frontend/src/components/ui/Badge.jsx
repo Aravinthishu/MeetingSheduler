@@ -1,11 +1,12 @@
+// src/components/ui/Badge.jsx
 const styles = {
-  scheduled: 'bg-blue-primary/10 text-blue-light border-blue-primary/20',
-  in_progress: 'bg-red-500/10 text-red-400 border-red-500/20',
-  completed: 'bg-green-500/10 text-green-400 border-green-500/20',
-  cancelled: 'bg-white/5 text-white/40 border-white/10',
-  free: 'bg-green-500/10 text-green-400 border-green-500/20',
-  busy: 'bg-red-500/10 text-red-400 border-red-500/20',
-  upcoming: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+  scheduled: 'bg-[#388add]/10 text-[#388add] border-[#388add]/30 dark:bg-blue-primary/10 dark:text-blue-light dark:border-blue-primary/20',
+  in_progress: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20',
+  completed: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-500/10 dark:text-green-400 dark:border-green-500/20',
+  cancelled: 'bg-[#f7fafc] text-[#a0aec0] border-[#e2e8f0] dark:bg-white/5 dark:text-white/40 dark:border-white/10',
+  free: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-500/10 dark:text-green-400 dark:border-green-500/20',
+  busy: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20',
+  upcoming: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20',
 }
 
 const labels = {
