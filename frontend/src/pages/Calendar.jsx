@@ -1,5 +1,6 @@
 // Calendar.jsx - With Theme Support
 import { useState, useRef, useMemo, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'  // ── ADDED
 import {
   format, startOfMonth, endOfMonth, eachDayOfInterval,
   isSameMonth, isSameDay, isToday, startOfWeek, endOfWeek,
@@ -29,6 +30,15 @@ const STATUS_DOT = {
   completed: 'bg-emerald-500 dark:bg-emerald-400',
   cancelled: 'bg-[#a0aec0] dark:bg-white/30',
 }
+
+// ── ADDED: filter options config ────────────────────────────────
+const FILTER_OPTIONS = [
+  { key: 'all', label: 'All' },
+  { key: 'upcoming', label: 'Upcoming' },
+  { key: 'in_progress', label: 'In Progress' },
+  { key: 'completed', label: 'Completed' },
+  { key: 'cancelled', label: 'Cancelled' },
+]
 
 // ── Overlap layout engine ────────────────────────────────────
 function computeOverlapColumns(meetings) {
@@ -251,7 +261,6 @@ function DayGrid({ date, meetings, onSlotClick, isMobile = false }) {
   }
 
   if (isMobile) {
-    // Mobile: List view - NO HORIZONTAL SCROLL
     return (
       <div className="space-y-2">
         {dayMeetings.length === 0 ? (
@@ -387,7 +396,6 @@ function WeekView({ weekStart, meetings, onSlotClick, isMobile = false }) {
   const [selectedDay, setSelectedDay] = useState(null)
 
   if (isMobile) {
-    // Mobile: Vertical list with slide-in day view
     if (selectedDay) {
       return (
         <div className="animate-slide-in-right">
@@ -413,7 +421,6 @@ function WeekView({ weekStart, meetings, onSlotClick, isMobile = false }) {
       )
     }
 
-    // Mobile week overview
     return (
       <div className="space-y-3">
         {days.map(day => {
@@ -455,12 +462,10 @@ function WeekView({ weekStart, meetings, onSlotClick, isMobile = false }) {
     )
   }
 
-  // Desktop: Grid with horizontal scroll but properly contained
   return (
     <div className="border border-[#e2e8f0] rounded-xl overflow-hidden dark:border-white/10">
       <div className="overflow-x-auto">
         <div style={{ minWidth: '700px' }}>
-          {/* Header */}
           <div className="grid grid-cols-8 border-b border-[#e2e8f0] bg-white/50 dark:border-white/10 dark:bg-navy-800/50">
             <div className="p-3 border-r border-[#e2e8f0] dark:border-white/10">
               <div className="text-xs font-semibold text-[#a0aec0] dark:text-white/40">Time</div>
@@ -475,7 +480,6 @@ function WeekView({ weekStart, meetings, onSlotClick, isMobile = false }) {
             ))}
           </div>
 
-          {/* Time grid */}
           <div className="grid grid-cols-8">
             <div className="border-r border-[#e2e8f0] dark:border-white/10">
               {HOURS.map(hour => (
@@ -507,7 +511,6 @@ function MonthView({ current, meetings, onDayClick, isMobile = false }) {
   const days = eachDayOfInterval({ start: calStart, end: calEnd })
 
   if (isMobile) {
-    // Mobile: Card list - NO HORIZONTAL SCROLL
     return (
       <div className="space-y-2">
         {days.map((day, i) => {
@@ -561,7 +564,6 @@ function MonthView({ current, meetings, onDayClick, isMobile = false }) {
     )
   }
 
-  // Desktop: Grid month view
   return (
     <>
       <div className="border border-[#e2e8f0] rounded-xl overflow-hidden dark:border-white/10">
@@ -794,6 +796,20 @@ export default function Calendar() {
   const [showSidebar, setShowSidebar] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
 
+  // ── ADDED: read ?filter from URL (e.g. from Dashboard "Upcoming" click) ──
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [filterStatus, setFilterStatus] = useState(
+    () => searchParams.get('filter') || 'all'
+  )
+
+  // Keep filter in sync if URL param changes externally
+  useEffect(() => {
+    const param = searchParams.get('filter')
+    if (param && FILTER_OPTIONS.some(f => f.key === param)) {
+      setFilterStatus(param)
+    }
+  }, [searchParams])
+
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768)
@@ -821,7 +837,18 @@ export default function Calendar() {
       : format(calEnd, 'yyyy-MM-dd')
 
   const { data } = useMeetings({ start_date: fetchStart, end_date: fetchEnd })
-  const meetings = data?.results || data || []
+  const allMeetings = data?.results || data || []
+
+  // ── ADDED: apply status filter client-side ──
+  const today = format(new Date(), 'yyyy-MM-dd')
+  const meetings = useMemo(() => {
+    if (filterStatus === 'all') return allMeetings
+    if (filterStatus === 'upcoming') {
+      // upcoming = scheduled AND date >= today
+      return allMeetings.filter(m => m.status === 'scheduled' && m.date >= today)
+    }
+    return allMeetings.filter(m => m.status === filterStatus)
+  }, [allMeetings, filterStatus, today])
 
   const nav = (dir) => {
     if (viewMode === 'day') setCurrentDate(d => addDays(d, dir))
@@ -839,6 +866,16 @@ export default function Calendar() {
         : `${format(ws, 'd MMM')} – ${format(we, 'd MMM yyyy')}`
     }
     return format(currentDate, 'MMMM yyyy')
+  }
+
+  // ── ADDED: handle filter change, update URL param too ──
+  const handleFilterChange = (key) => {
+    setFilterStatus(key)
+    if (key === 'all') {
+      setSearchParams({})
+    } else {
+      setSearchParams({ filter: key })
+    }
   }
 
   return (
@@ -871,7 +908,7 @@ export default function Calendar() {
         </div>
 
         <div className="flex gap-5">
-          {/* Sidebar - Hidden on mobile, shown in drawer */}
+          {/* Sidebar */}
           {!isMobile && (
             <div className="w-64 shrink-0 space-y-4 animate-slide-in-left">
               <div className="rounded-2xl border border-[#e2e8f0] bg-white overflow-hidden dark:border-white/10 dark:bg-navy-800/60">
@@ -880,7 +917,7 @@ export default function Calendar() {
                   selected={currentDate}
                   onSelect={(day) => { setCurrentDate(day); setMiniMonth(day) }}
                   onMonthChange={setMiniMonth}
-                  meetings={meetings}
+                  meetings={allMeetings}
                 />
               </div>
 
@@ -920,7 +957,7 @@ export default function Calendar() {
                     selected={currentDate}
                     onSelect={(day) => { setCurrentDate(day); setMiniMonth(day); setShowSidebar(false) }}
                     onMonthChange={setMiniMonth}
-                    meetings={meetings}
+                    meetings={allMeetings}
                   />
                   <div className="mt-4 pt-4 border-t border-[#e2e8f0] dark:border-white/10">
                     <p className="text-xs font-bold text-[#a0aec0] uppercase tracking-widest mb-3 dark:text-white/40">Status</p>
@@ -962,26 +999,61 @@ export default function Calendar() {
                 <h2 className="text-base font-bold text-[#1a202c] dark:text-white">{headerLabel()}</h2>
               </div>
 
-              <div className="flex items-center gap-1.5 bg-white rounded-xl p-1 border border-[#e2e8f0] self-start sm:self-auto dark:bg-navy-800/80 dark:border-white/10">
-                {['month', 'week', 'day'].map(mode => (
-                  <button
-                    key={mode}
-                    onClick={() => setViewMode(mode)}
-                    className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all capitalize ${viewMode === mode
+              {/* ── ADDED: right side — filter pills + view mode buttons ── */}
+              <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap self-start sm:self-auto">
+
+                {/* View mode buttons */}
+                <div className="flex items-center gap-1.5 bg-white rounded-xl p-1 border border-[#e2e8f0] dark:bg-navy-800/80 dark:border-white/10">
+                  {['month', 'week', 'day'].map(mode => (
+                    <button
+                      key={mode}
+                      onClick={() => setViewMode(mode)}
+                      className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all capitalize ${viewMode === mode
                         ? 'bg-blue-500 text-white shadow-md shadow-blue-500/30'
                         : 'text-[#4a5568] hover:text-[#1a202c] hover:bg-[#f7fafc] dark:text-white/40 dark:hover:text-white dark:hover:bg-white/10'
-                      }`}
-                  >
-                    {mode}
-                  </button>
-                ))}
+                        }`}
+                    >
+                      {mode}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
-            {/* Views */}
+            {/* Mobile Dropdown */}
+            <div className="block sm:hidden w-full">
+              <select
+                value={filterStatus}
+                onChange={(e) => handleFilterChange(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl border border-[#e2e8f0] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 dark:bg-navy-800/80 dark:border-white/10 dark:text-white"
+              >
+                {FILTER_OPTIONS.map((opt) => (
+                  <option key={opt.key} value={opt.key}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Desktop Filter Pills */}
+            <div className="hidden sm:flex items-center gap-1 bg-white rounded-xl p-1 border border-[#e2e8f0] dark:bg-navy-800/80 dark:border-white/10 mx-auto sm:mx-0">
+              {FILTER_OPTIONS.map((opt) => (
+                <button
+                  key={opt.key}
+                  onClick={() => handleFilterChange(opt.key)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${filterStatus === opt.key
+                      ? 'bg-amber-400 text-white shadow-md shadow-amber-400/30'
+                      : 'text-[#4a5568] hover:text-[#1a202c] hover:bg-[#f7fafc] dark:text-white/40 dark:hover:text-white dark:hover:bg-white/10'
+                    }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Views — unchanged, just receive filtered `meetings` now */}
             {viewMode === 'day' && (
               isMobile ? (
-                // Mobile: List view
                 <div className="border border-[#e2e8f0] rounded-xl p-4 bg-white/40 dark:border-white/10 dark:bg-navy-800/30">
                   <div className="mb-3 pb-2 border-b border-[#e2e8f0] dark:border-white/10">
                     <h3 className="text-lg font-semibold text-[#1a202c] dark:text-white">{format(currentDate, 'EEEE, MMMM d, yyyy')}</h3>
@@ -994,11 +1066,9 @@ export default function Calendar() {
                   />
                 </div>
               ) : (
-                // Desktop: With time column
                 <div className="border border-[#e2e8f0] rounded-xl overflow-hidden dark:border-white/10">
                   <div className="overflow-x-auto">
                     <div style={{ minWidth: '700px' }}>
-                      {/* Header */}
                       <div className="grid grid-cols-[80px_1fr] border-b border-[#e2e8f0] bg-white/50 dark:border-white/10 dark:bg-navy-800/50">
                         <div className="p-3 border-r border-[#e2e8f0] dark:border-white/10">
                           <div className="text-xs font-semibold text-[#a0aec0] dark:text-white/40">Time</div>
@@ -1010,8 +1080,6 @@ export default function Calendar() {
                           </div>
                         </div>
                       </div>
-
-                      {/* Time grid */}
                       <div className="grid grid-cols-[80px_1fr]">
                         <div className="border-r border-[#e2e8f0] dark:border-white/10">
                           {HOURS.map(hour => (
@@ -1068,42 +1136,20 @@ export default function Calendar() {
 
       <style jsx>{`
         @keyframes slide-up {
-          from {
-            transform: translateY(100%);
-            opacity: 0;
-          }
-          to {
-            transform: translateY(0);
-            opacity: 1;
-          }
+          from { transform: translateY(100%); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
         }
         @keyframes slide-in-left {
-          from {
-            transform: translateX(-100%);
-            opacity: 0;
-          }
-          to {
-            transform: translateX(0);
-            opacity: 1;
-          }
+          from { transform: translateX(-100%); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
         }
         @keyframes fade-in {
-          from {
-            opacity: 0;
-          }
-          to {
-            opacity: 1;
-          }
+          from { opacity: 0; }
+          to { opacity: 1; }
         }
-        .animate-slide-up {
-          animation: slide-up 0.3s ease-out;
-        }
-        .animate-slide-in-left {
-          animation: slide-in-left 0.3s ease-out;
-        }
-        .animate-fade-in {
-          animation: fade-in 0.2s ease-out;
-        }
+        .animate-slide-up { animation: slide-up 0.3s ease-out; }
+        .animate-slide-in-left { animation: slide-in-left 0.3s ease-out; }
+        .animate-fade-in { animation: fade-in 0.2s ease-out; }
       `}</style>
     </div>
   )

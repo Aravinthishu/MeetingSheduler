@@ -8,6 +8,7 @@ import { format } from "date-fns"
 import Badge from "../components/ui/Badge"
 import Button from "../components/ui/Button"
 import Card from "../components/ui/Card"
+import Modal from "../components/ui/Modal"
 import { useMeetingAction } from "../hooks/useMeetings"
 import {
   ArrowLeft, Clock, Users, Calendar,
@@ -81,11 +82,100 @@ export default function MeetingDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { start, end, cancel } = useMeetingAction()
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    type: '', // 'start', 'end', or 'cancel'
+    meetingId: null,
+    meetingTitle: ''
+  })
 
   const { data: m, isLoading } = useQuery({
     queryKey: ["meeting", id],
     queryFn: () => meetingsApi.get(id).then(r => r.data),
   })
+
+  // ── Fetch current user to check permissions ──
+  const { data: meData } = useQuery({
+    queryKey: ['me'],
+    queryFn: () => usersApi.me().then(r => r.data),
+  })
+  const currentUserId = meData?.user?.id
+
+  // ── Check if current user is the organizer ──
+  const isOrganizer = currentUserId && m?.organizer_detail?.id === currentUserId
+
+  // ── NEW: Show confirmation modal for starting meeting ──
+  const handleStartClick = () => {
+    setConfirmModal({
+      isOpen: true,
+      type: 'start',
+      meetingId: m.id,
+      meetingTitle: m.title
+    })
+  }
+
+  // ── NEW: Show confirmation modal for ending meeting ──
+  const handleEndClick = () => {
+    setConfirmModal({
+      isOpen: true,
+      type: 'end',
+      meetingId: m.id,
+      meetingTitle: m.title
+    })
+  }
+
+  // ── NEW: Show confirmation modal for canceling meeting ──
+  const handleCancelClick = () => {
+    setConfirmModal({
+      isOpen: true,
+      type: 'cancel',
+      meetingId: m.id,
+      meetingTitle: m.title
+    })
+  }
+
+  // ── NEW: Execute the confirmed action ──
+  const handleConfirmAction = () => {
+    const { type, meetingId } = confirmModal
+    
+    if (type === 'start') {
+      start.mutate(meetingId, {
+        onSuccess: () => {
+          toast.success('Meeting started!')
+          setConfirmModal({ isOpen: false, type: '', meetingId: null, meetingTitle: '' })
+        },
+        onError: () => {
+          toast.error('Failed to start meeting')
+        }
+      })
+    } else if (type === 'end') {
+      end.mutate(meetingId, {
+        onSuccess: () => {
+          toast.success('Meeting ended')
+          setConfirmModal({ isOpen: false, type: '', meetingId: null, meetingTitle: '' })
+        },
+        onError: () => {
+          toast.error('Failed to end meeting')
+        }
+      })
+    } else if (type === 'cancel') {
+      cancel.mutate(meetingId, {
+        onSuccess: () => {
+          toast.success('Meeting cancelled')
+          navigate('/meetings')
+          setConfirmModal({ isOpen: false, type: '', meetingId: null, meetingTitle: '' })
+        },
+        onError: () => {
+          toast.error('Failed to cancel meeting')
+        }
+      })
+    }
+  }
+
+  // ── NEW: Close confirmation modal ──
+  const handleCloseConfirmModal = () => {
+    setConfirmModal({ isOpen: false, type: '', meetingId: null, meetingTitle: '' })
+  }
 
   if (isLoading) return (
     <div className="flex items-center justify-center h-64">
@@ -96,12 +186,20 @@ export default function MeetingDetail() {
   if (!m) return <div className="p-6 text-[#a0aec0] dark:text-white/40">Meeting not found</div>
 
   const createdBy = m.organizer_detail
-    ? `${m.organizer_detail.first_name || ''} ${m.organizer_detail.last_name || m.organizer_detail.username}`.trim()
-    : '—'
+    ? (
+      m.organizer_detail.first_name || m.organizer_detail.last_name
+        ? `${m.organizer_detail.first_name || ''} ${m.organizer_detail.last_name || ''}`.trim()
+        : m.organizer_detail.username
+    )
+    : '—';
 
   const conductor = m.conductor_detail
-    ? `${m.conductor_detail.first_name || ''} ${m.conductor_detail.last_name || m.conductor_detail.username}`.trim()
-    : `${m.organizer_detail.first_name || ''} ${m.organizer_detail.last_name || m.organizer_detail.username}`.trim()
+    ? (
+      m.conductor_detail.first_name || m.conductor_detail.last_name
+        ? `${m.conductor_detail.first_name || ''} ${m.conductor_detail.last_name || ''}`.trim()
+        : m.conductor_detail.username
+    )
+    : createdBy;
 
   return (
     <div className="p-3 sm:p-4 md:p-6 max-w-full md:max-w-2xl lg:max-w-4xl mx-auto animate-fade-in">
@@ -118,7 +216,10 @@ export default function MeetingDetail() {
           <h1 className="text-xl sm:text-2xl font-bold text-[#1a202c] tracking-tight break-words dark:text-white">{m.title}</h1>
           {m.team_detail && (
             <p className="text-xs sm:text-sm text-[#a0aec0] mt-1 dark:text-white/40">
-              {`${m.conductor_detail?.first_name || ""} ${m.conductor_detail?.last_name || ""} || ${m.organizer_detail?.first_name || ""} ${m.organizer_detail?.last_name || ""}`}
+              {`${`${m.organizer_detail?.first_name || ""} ${m.organizer_detail?.last_name || ""}`.trim() ||
+                m.organizer_detail?.username ||
+                "—"
+                }`}
             </p>
           )}
         </div>
@@ -159,8 +260,8 @@ export default function MeetingDetail() {
             icon={Clock}
             label="Time"
             value={`${format(new Date(`2000-01-01T${m.start_time}`), 'h:mm a')} → ${m.end_time
-                ? format(new Date(`2000-01-01T${m.end_time}`), 'h:mm a')
-                : 'Open-ended'
+              ? format(new Date(`2000-01-01T${m.end_time}`), 'h:mm a')
+              : 'Open-ended'
               }`}
           />
           {m.recurrence !== 'none' && (
@@ -233,39 +334,88 @@ export default function MeetingDetail() {
         </Card>
       )}
 
-      {/* Actions */}
-      <div className="flex flex-wrap gap-2">
-        {m.status === 'scheduled' && (
-          <>
-            <Button
-              icon={StopCircle}
-              onClick={() => { start.mutate(m.id); toast.success('Meeting started!') }}
+      {/* Actions - Only show if user is organizer */}
+      {isOrganizer && (
+        <div className="flex flex-wrap gap-2">
+          {m.status === 'scheduled' && (
+            <>
+              <Button
+                icon={StopCircle}
+                onClick={handleStartClick}
+              >
+                Start Meeting
+              </Button>
+              <Button
+                icon={XCircle}
+                variant="danger"
+                onClick={handleCancelClick}
+              >
+                Cancel
+              </Button>
+            </>
+          )}
+          {m.status === 'in_progress' && m.end_time && (
+            <>
+              <Button
+                icon={StopCircle}
+                variant="danger"
+                onClick={handleEndClick}
+              >
+                <span className="hidden sm:inline">End Meeting Early</span>
+                <span className="sm:hidden">End</span>
+              </Button>
+              <ExtendButton meetingId={m.id} />
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ── NEW: Confirmation Modal ── */}
+      <Modal 
+        open={confirmModal.isOpen} 
+        onClose={handleCloseConfirmModal} 
+        title={
+          confirmModal.type === 'start' ? 'Start Meeting' :
+          confirmModal.type === 'end' ? 'End Meeting' : 
+          'Cancel Meeting'
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-[#4a5568] dark:text-white/70">
+            Are you sure you want to <span className="font-semibold">{confirmModal.type}</span> the meeting 
+            <span className="font-semibold text-[#1a202c] dark:text-white"> "{confirmModal.meetingTitle}"</span>?
+          </p>
+          <p className="text-xs text-[#a0aec0] dark:text-white/40">
+            {confirmModal.type === 'start' 
+              ? 'This action will start the meeting and change its status to "In Progress".' 
+              : confirmModal.type === 'end'
+              ? 'This action will end the meeting and free up the room.'
+              : 'This action will cancel the meeting and notify all participants.'}
+          </p>
+          <div className="flex gap-3 justify-end pt-2">
+            <Button 
+              variant="ghost" 
+              onClick={handleCloseConfirmModal}
+              className="px-4 py-2"
             >
-              Start Meeting
+              No, Keep it
             </Button>
-            <Button
-              icon={XCircle}
-              variant="danger"
-              onClick={() => { cancel.mutate(m.id); navigate('/meetings') }}
+            <Button 
+              variant={
+                confirmModal.type === 'end' || confirmModal.type === 'cancel' 
+                  ? 'danger' 
+                  : 'primary'
+              } 
+              onClick={handleConfirmAction}
+              className="px-4 py-2"
             >
-              Cancel
+              Yes, {confirmModal.type === 'start' ? 'Start' : 
+                     confirmModal.type === 'end' ? 'End' : 
+                     'Cancel'} Meeting
             </Button>
-          </>
-        )}
-        {m.status === 'in_progress' && m.end_time && (
-          <>
-            <Button
-              icon={StopCircle}
-              variant="danger"
-              onClick={() => { end.mutate(m.id); toast.success('Meeting ended') }}
-            >
-              <span className="hidden sm:inline">End Meeting Early</span>
-              <span className="sm:hidden">End</span>
-            </Button>
-            <ExtendButton meetingId={m.id} />
-          </>
-        )}
-      </div>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }

@@ -24,32 +24,32 @@ const PANEL_UPCOMING = 'upcoming'
 function StatCard({ label, value, color, icon: Icon, onClick, active }) {
   const styles = {
     blue: {
-      card: active 
-        ? 'border-blue-primary/50 bg-blue-primary/10 dark:bg-blue-primary/10' 
+      card: active
+        ? 'border-blue-primary/50 bg-blue-primary/10 dark:bg-blue-primary/10'
         : 'border-blue-primary/20 hover:border-blue-primary/40 hover:bg-blue-primary/5 dark:hover:bg-blue-primary/5',
       value: 'text-blue-primary dark:text-blue-light',
     },
     red: {
-      card: active 
-        ? 'border-red-500/50 bg-red-500/10 dark:bg-red-500/10' 
+      card: active
+        ? 'border-red-500/50 bg-red-500/10 dark:bg-red-500/10'
         : 'border-red-500/20 hover:border-red-500/40 hover:bg-red-500/5 dark:hover:bg-red-500/5',
       value: 'text-red-600 dark:text-red-400',
     },
     amber: {
-      card: active 
-        ? 'border-amber-400/50 bg-amber-400/10 dark:bg-amber-400/10' 
+      card: active
+        ? 'border-amber-400/50 bg-amber-400/10 dark:bg-amber-400/10'
         : 'border-amber-400/20 hover:border-amber-400/40 hover:bg-amber-400/5 dark:hover:bg-amber-400/5',
       value: 'text-amber-600 dark:text-amber-400',
     },
     green: {
-      card: active 
-        ? 'border-green-500/50 bg-green-500/10 dark:bg-green-500/10' 
+      card: active
+        ? 'border-green-500/50 bg-green-500/10 dark:bg-green-500/10'
         : 'border-green-500/20 hover:border-green-500/40 hover:bg-green-500/5 dark:hover:bg-green-500/5',
       value: 'text-green-600 dark:text-green-400',
     },
     purple: {
-      card: active 
-        ? 'border-purple-500/50 bg-purple-500/10 dark:bg-purple-500/10' 
+      card: active
+        ? 'border-purple-500/50 bg-purple-500/10 dark:bg-purple-500/10'
         : 'border-purple-500/20 hover:border-purple-500/40 hover:bg-purple-500/5 dark:hover:bg-purple-500/5',
       value: 'text-purple-600 dark:text-purple-400',
     },
@@ -71,10 +71,16 @@ function StatCard({ label, value, color, icon: Icon, onClick, active }) {
   )
 }
 
-function MeetingRow({ m, showCancel, showEnd, onCancel, onEnd }) {
+// ── CHANGE 1: accept currentUserId, only show End to organizer ──
+function MeetingRow({ m, showCancel, showEnd, onCancel, onEnd, currentUserId }) {
   const navigate = useNavigate()
   const [expanded, setExpanded] = useState(false)
   const isToday = m.date === format(new Date(), 'yyyy-MM-dd')
+
+  // End and Cancel are only available to the meeting organizer
+  const isOrganizer = currentUserId && m.organizer_detail?.id === currentUserId
+  const canEnd = showEnd && isOrganizer
+  const canCancel = showCancel && isOrganizer
 
   return (
     <div className="border-b border-[#e2e8f0] last:border-0 dark:border-white/5">
@@ -106,9 +112,17 @@ function MeetingRow({ m, showCancel, showEnd, onCancel, onEnd }) {
           <p className="text-sm font-medium text-[#1a202c] truncate dark:text-white">{m.title}</p>
           <div className={`${expanded ? 'block' : 'hidden sm:block'}`}>
             <p className="text-xs text-[#a0aec0] mt-0.5 truncate dark:text-white/40">
-              {m.conductor_detail
-                ? `${m.conductor_detail.first_name || ''} ${m.conductor_detail.last_name || m.conductor_detail.username}`.trim()
-                : `${m.organizer_detail?.first_name || ''} ${m.organizer_detail?.last_name || m.organizer_detail?.username || '—'}`.trim()
+              {
+                m.conductor_detail
+                  ? (
+                    `${m.conductor_detail.first_name || ''} ${m.conductor_detail.last_name || ''}`.trim() ||
+                    m.conductor_detail.username
+                  )
+                  : (
+                    `${m.organizer_detail?.first_name || ''} ${m.organizer_detail?.last_name || ''}`.trim() ||
+                    m.organizer_detail?.username ||
+                    '—'
+                  )
               }
               {m.room_detail ? ` · ${m.room_detail.name}` : ''}
             </p>
@@ -118,11 +132,13 @@ function MeetingRow({ m, showCancel, showEnd, onCancel, onEnd }) {
         <div className={`flex items-center gap-1.5 shrink-0 ${expanded ? 'flex' : 'hidden sm:flex'}`}>
           <Badge status={m.status} pulse={m.status === 'in_progress'} />
           <Button size="sm" variant="ghost" onClick={() => navigate(`/meetings/${m.id}`)}>View</Button>
-          {showEnd && (
-            <Button size="sm" variant="danger" onClick={() => onEnd(m.id)}>End</Button>
+          {/* ── CHANGE 1: End only visible to organizer ── */}
+          {canEnd && (
+            <Button size="sm" variant="danger" onClick={() => onEnd(m.id, m.title)}>End</Button>
           )}
-          {showCancel && (
-            <Button size="sm" variant="ghost" onClick={() => onCancel(m.id)} className="hidden sm:inline-flex">Cancel</Button>
+          {/* ── Cancel only visible to organizer ── */}
+          {canCancel && (
+            <Button size="sm" variant="ghost" onClick={() => onCancel(m.id, m.title)} className="hidden sm:inline-flex">Cancel</Button>
           )}
         </div>
       </div>
@@ -133,6 +149,12 @@ function MeetingRow({ m, showCancel, showEnd, onCancel, onEnd }) {
 export default function Dashboard() {
   const [bookOpen, setBookOpen] = useState(false)
   const [activePanel, setActivePanel] = useState(PANEL_ALL)
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    type: '', // 'end' or 'cancel'
+    meetingId: null,
+    meetingTitle: ''
+  })
   const navigate = useNavigate()
   const qc = useQueryClient()
   const { end, cancel } = useMeetingAction()
@@ -144,14 +166,21 @@ export default function Dashboard() {
     refetchIntervalInBackground: true,
   })
 
+  // ── CHANGE 2: fetch current user to gate the End button ──
+  const { data: meData } = useQuery({
+    queryKey: ['me'],
+    queryFn: () => usersApi.me().then(r => r.data),
+  })
+  const currentUserId = meData?.user?.id
+
   const stats = dashboardData?.stats || {}
   const rooms = dashboardData?.rooms || []
   const todaySchedule = dashboardData?.today_schedule || []
-  const upcomingSchedule = dashboardData?.upcoming_schedule || [] 
+  const upcomingSchedule = dashboardData?.upcoming_schedule || []
   const teams = dashboardData?.teams || []
 
   const inProgressMeetings = todaySchedule.filter(m => m.status === 'in_progress')
-  const upcomingMeetings = upcomingSchedule 
+  const upcomingMeetings = upcomingSchedule
 
   const panelConfig = {
     [PANEL_ALL]: { label: 'All Today', meetings: todaySchedule },
@@ -164,25 +193,63 @@ export default function Dashboard() {
     if (type === 'total') { navigate('/meetings'); return }
     if (type === 'completed') { navigate('/meetings?status=completed'); return }
     if (type === 'cancelled') { navigate('/meetings?status=cancelled'); return }
+    // ── CHANGE 3: Upcoming stat → navigate to Calendar with filter ──
+    if (type === PANEL_UPCOMING) { navigate('/calendar?filter=upcoming'); return }
     setActivePanel(prev => prev === type ? PANEL_ALL : type)
   }
 
-  const handleEnd = (id) => {
-    end.mutate(id, {
-      onSuccess: () => {
-        toast.success('Meeting ended')
-        qc.invalidateQueries({ queryKey: ['dashboard'] })
-      }
+  // ── NEW: Show confirmation modal for ending meeting ──
+  const handleEndClick = (id, title) => {
+    setConfirmModal({
+      isOpen: true,
+      type: 'end',
+      meetingId: id,
+      meetingTitle: title || 'Untitled Meeting'
     })
   }
 
-  const handleCancel = (id) => {
-    cancel.mutate(id, {
-      onSuccess: () => {
-        toast.success('Meeting cancelled')
-        qc.invalidateQueries({ queryKey: ['dashboard'] })
-      }
+  // ── NEW: Show confirmation modal for canceling meeting ──
+  const handleCancelClick = (id, title) => {
+    setConfirmModal({
+      isOpen: true,
+      type: 'cancel',
+      meetingId: id,
+      meetingTitle: title || 'Untitled Meeting'
     })
+  }
+
+  // ── NEW: Execute the confirmed action ──
+  const handleConfirmAction = () => {
+    const { type, meetingId } = confirmModal
+    
+    if (type === 'end') {
+      end.mutate(meetingId, {
+        onSuccess: () => {
+          toast.success('Meeting ended successfully')
+          qc.invalidateQueries({ queryKey: ['dashboard'] })
+          setConfirmModal({ isOpen: false, type: '', meetingId: null, meetingTitle: '' })
+        },
+        onError: () => {
+          toast.error('Failed to end meeting')
+        }
+      })
+    } else if (type === 'cancel') {
+      cancel.mutate(meetingId, {
+        onSuccess: () => {
+          toast.success('Meeting cancelled successfully')
+          qc.invalidateQueries({ queryKey: ['dashboard'] })
+          setConfirmModal({ isOpen: false, type: '', meetingId: null, meetingTitle: '' })
+        },
+        onError: () => {
+          toast.error('Failed to cancel meeting')
+        }
+      })
+    }
+  }
+
+  // ── NEW: Close confirmation modal ──
+  const handleCloseConfirmModal = () => {
+    setConfirmModal({ isOpen: false, type: '', meetingId: null, meetingTitle: '' })
   }
 
   const availableRooms = rooms.filter(r => r.status === 'available')
@@ -210,8 +277,9 @@ export default function Dashboard() {
           onClick={() => handleStatClick(PANEL_ALL)} active={activePanel === PANEL_ALL} />
         <StatCard label="In Progress" value={stats.in_progress || 0} color="red" icon={AlertCircle}
           onClick={() => handleStatClick(PANEL_INPROGRESS)} active={activePanel === PANEL_INPROGRESS} />
+        {/* ── CHANGE 3: Upcoming card navigates to Calendar ── */}
         <StatCard label="Upcoming" value={stats.upcoming || 0} color="amber" icon={TrendingUp}
-          onClick={() => handleStatClick(PANEL_UPCOMING)} active={activePanel === PANEL_UPCOMING} />
+          onClick={() => handleStatClick(PANEL_UPCOMING)} active={false} />
         <StatCard label="Completed" value={stats.completed || 0} color="green" icon={CheckCircle}
           onClick={() => handleStatClick('completed')} active={false} />
         <StatCard label="Cancelled" value={stats.cancelled || 0} color="red" icon={XCircle}
@@ -232,12 +300,14 @@ export default function Dashboard() {
               ].map(tab => (
                 <button
                   key={tab.key}
-                  onClick={() => setActivePanel(tab.key)}
-                  className={`flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                    activePanel === tab.key
+                  onClick={() => {
+                    if (tab.key === PANEL_UPCOMING) { navigate('/calendar?filter=upcoming'); return }
+                    setActivePanel(tab.key)
+                  }}
+                  className={`flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 rounded-md text-xs font-medium transition-all ${activePanel === tab.key
                       ? 'bg-blue-primary text-white'
                       : 'text-[#a0aec0] hover:text-[#1a202c] dark:text-white/40 dark:hover:text-white'
-                  }`}
+                    }`}
                 >
                   {tab.label}
                   {tab.key === PANEL_INPROGRESS && inProgressMeetings.length > 0 && (
@@ -265,8 +335,9 @@ export default function Dashboard() {
                   m={m}
                   showEnd={m.status === 'in_progress'}
                   showCancel={m.status === 'scheduled'}
-                  onEnd={handleEnd}
-                  onCancel={handleCancel}
+                  onEnd={handleEndClick}
+                  onCancel={handleCancelClick}
+                  currentUserId={currentUserId}
                 />
               ))
             )}
@@ -296,21 +367,18 @@ export default function Dashboard() {
               {rooms.length === 0 ? (
                 <p className="text-xs text-[#a0aec0] text-center py-3 dark:text-white/25">No rooms configured</p>
               ) : rooms.map(room => (
-                <div key={room.id} className={`rounded-lg p-3 border ${
-                  room.status === 'occupied'
+                <div key={room.id} className={`rounded-lg p-3 border ${room.status === 'occupied'
                     ? 'bg-red-50 border-red-200 dark:bg-red-500/5 dark:border-red-500/15'
                     : 'bg-green-50 border-green-200 dark:bg-green-500/5 dark:border-green-500/15'
-                }`}>
+                  }`}>
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <div className="flex items-center gap-2 min-w-0">
-                      <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                        room.status === 'occupied' ? 'bg-red-500 animate-pulse dark:bg-red-400' : 'bg-green-500 dark:bg-green-400'
-                      }`} />
+                      <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${room.status === 'occupied' ? 'bg-red-500 animate-pulse dark:bg-red-400' : 'bg-green-500 dark:bg-green-400'
+                        }`} />
                       <span className="text-xs font-medium text-[#1a202c] truncate dark:text-white">{room.name}</span>
                     </div>
-                    <span className={`text-xs font-semibold shrink-0 ${
-                      room.status === 'occupied' ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'
-                    }`}>
+                    <span className={`text-xs font-semibold shrink-0 ${room.status === 'occupied' ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'
+                      }`}>
                       {room.status === 'occupied' ? 'Busy' : 'Free'}
                     </span>
                   </div>
@@ -362,8 +430,44 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Book Meeting Modal */}
       <Modal open={bookOpen} onClose={() => setBookOpen(false)} title="Book Meeting Room">
         <MeetingForm onSuccess={() => { setBookOpen(false); qc.invalidateQueries({ queryKey: ['dashboard'] }) }} />
+      </Modal>
+
+      {/* ── NEW: Confirmation Modal ── */}
+      <Modal 
+        open={confirmModal.isOpen} 
+        onClose={handleCloseConfirmModal} 
+        title={confirmModal.type === 'end' ? 'End Meeting' : 'Cancel Meeting'}
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-[#4a5568] dark:text-white/70">
+            Are you sure you want to <span className="font-semibold">{confirmModal.type}</span> the meeting 
+            <span className="font-semibold text-[#1a202c] dark:text-white"> "{confirmModal.meetingTitle}"</span>?
+          </p>
+          <p className="text-xs text-[#a0aec0] dark:text-white/40">
+            {confirmModal.type === 'end' 
+              ? 'This action will end the meeting and free up the room.' 
+              : 'This action will cancel the meeting and notify all participants.'}
+          </p>
+          <div className="flex gap-3 justify-end pt-2">
+            <Button 
+              variant="ghost" 
+              onClick={handleCloseConfirmModal}
+              className="px-4 py-2"
+            >
+              No, Keep it
+            </Button>
+            <Button 
+              variant={confirmModal.type === 'end' ? 'danger' : 'primary'} 
+              onClick={handleConfirmAction}
+              className="px-4 py-2"
+            >
+              Yes, {confirmModal.type === 'end' ? 'End' : 'Cancel'} Meeting
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   )

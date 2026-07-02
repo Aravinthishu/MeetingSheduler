@@ -5,8 +5,12 @@ import { useMeetings, useTeams, useMeetingAction } from '../hooks/useMeetings'
 import Table from '../components/ui/Table'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
+import Modal from '../components/ui/Modal'
 import { format } from 'date-fns'
 import { Search, Eye, Filter, X, Trash2 } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { usersApi } from '../api/client'
+import toast from 'react-hot-toast'
 
 export default function MeetingList() {
   const location = useLocation()
@@ -17,9 +21,23 @@ export default function MeetingList() {
   const [filters, setFilters] = useState({ team: '', status: urlStatus, date: '' })
   const [search, setSearch] = useState('')
   const [showFilters, setShowFilters] = useState(false)
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    type: '', // 'end' or 'cancel'
+    meetingId: null,
+    meetingTitle: ''
+  })
+  
   const { data, isLoading } = useMeetings(filters)
   const { data: teams = [] } = useTeams()
   const { cancel, end } = useMeetingAction()
+
+  // ── Fetch current user to check permissions ──
+  const { data: meData } = useQuery({
+    queryKey: ['me'],
+    queryFn: () => usersApi.me().then(r => r.data),
+  })
+  const currentUserId = meData?.user?.id
 
   useEffect(() => {
     const s = new URLSearchParams(location.search).get('status') || ''
@@ -29,6 +47,58 @@ export default function MeetingList() {
   const meetings = (data?.results || data || []).filter(m =>
     !search || m.title.toLowerCase().includes(search.toLowerCase())
   )
+
+  // ── NEW: Show confirmation modal for ending meeting ──
+  const handleEndClick = (id, title) => {
+    setConfirmModal({
+      isOpen: true,
+      type: 'end',
+      meetingId: id,
+      meetingTitle: title || 'Untitled Meeting'
+    })
+  }
+
+  // ── NEW: Show confirmation modal for canceling meeting ──
+  const handleCancelClick = (id, title) => {
+    setConfirmModal({
+      isOpen: true,
+      type: 'cancel',
+      meetingId: id,
+      meetingTitle: title || 'Untitled Meeting'
+    })
+  }
+
+  // ── NEW: Execute the confirmed action ──
+  const handleConfirmAction = () => {
+    const { type, meetingId } = confirmModal
+    
+    if (type === 'end') {
+      end.mutate(meetingId, {
+        onSuccess: () => {
+          toast.success('Meeting ended successfully')
+          setConfirmModal({ isOpen: false, type: '', meetingId: null, meetingTitle: '' })
+        },
+        onError: () => {
+          toast.error('Failed to end meeting')
+        }
+      })
+    } else if (type === 'cancel') {
+      cancel.mutate(meetingId, {
+        onSuccess: () => {
+          toast.success('Meeting cancelled successfully')
+          setConfirmModal({ isOpen: false, type: '', meetingId: null, meetingTitle: '' })
+        },
+        onError: () => {
+          toast.error('Failed to cancel meeting')
+        }
+      })
+    }
+  }
+
+  // ── NEW: Close confirmation modal ──
+  const handleCloseConfirmModal = () => {
+    setConfirmModal({ isOpen: false, type: '', meetingId: null, meetingTitle: '' })
+  }
 
   const columns = [
     {
@@ -63,23 +133,40 @@ export default function MeetingList() {
     },
     {
       key: 'id', label: 'Actions',
-      render: (v, row) => (
-        <div className="flex flex-wrap gap-1.5">
-          <Button size="sm" variant="ghost" icon={Eye} onClick={() => navigate(`/meetings/${v}`)}>
-            <span className="hidden sm:inline">View</span>
-          </Button>
-          {row.status === 'in_progress' && (
-            <Button size="sm" variant="danger" icon={Trash2} onClick={() => end.mutate(v)}>
-              <span className="hidden sm:inline">End</span>
+      render: (v, row) => {
+        // ── Check if current user is the organizer ──
+        const isOrganizer = currentUserId && row.organizer_detail?.id === currentUserId
+        
+        return (
+          <div className="flex flex-wrap gap-1.5">
+            <Button size="sm" variant="ghost" icon={Eye} onClick={() => navigate(`/meetings/${v}`)}>
+              <span className="hidden sm:inline">View</span>
             </Button>
-          )}
-          {row.status === 'scheduled' && (
-            <Button size="sm" variant="ghost" icon={Trash2} onClick={() => cancel.mutate(v)}>
-              <span className="hidden sm:inline">Cancel</span>
-            </Button>
-          )}
-        </div>
-      )
+            {/* ── Only show End button if user is organizer ── */}
+            {row.status === 'in_progress' && isOrganizer && (
+              <Button 
+                size="sm" 
+                variant="danger" 
+                icon={Trash2} 
+                onClick={() => handleEndClick(v, row.title)}
+              >
+                <span className="hidden sm:inline">End</span>
+              </Button>
+            )}
+            {/* ── Only show Cancel button if user is organizer ── */}
+            {row.status === 'scheduled' && isOrganizer && (
+              <Button 
+                size="sm" 
+                variant="ghost" 
+                icon={Trash2} 
+                onClick={() => handleCancelClick(v, row.title)}
+              >
+                <span className="hidden sm:inline">Cancel</span>
+              </Button>
+            )}
+          </div>
+        )
+      }
     },
   ]
 
@@ -177,6 +264,41 @@ export default function MeetingList() {
           </div>
         </div>
       </div>
+
+      {/* ── NEW: Confirmation Modal ── */}
+      <Modal 
+        open={confirmModal.isOpen} 
+        onClose={handleCloseConfirmModal} 
+        title={confirmModal.type === 'end' ? 'End Meeting' : 'Cancel Meeting'}
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-[#4a5568] dark:text-white/70">
+            Are you sure you want to <span className="font-semibold">{confirmModal.type}</span> the meeting 
+            <span className="font-semibold text-[#1a202c] dark:text-white"> "{confirmModal.meetingTitle}"</span>?
+          </p>
+          <p className="text-xs text-[#a0aec0] dark:text-white/40">
+            {confirmModal.type === 'end' 
+              ? 'This action will end the meeting and free up the room.' 
+              : 'This action will cancel the meeting and notify all participants.'}
+          </p>
+          <div className="flex gap-3 justify-end pt-2">
+            <Button 
+              variant="ghost" 
+              onClick={handleCloseConfirmModal}
+              className="px-4 py-2"
+            >
+              No, Keep it
+            </Button>
+            <Button 
+              variant={confirmModal.type === 'end' ? 'danger' : 'primary'} 
+              onClick={handleConfirmAction}
+              className="px-4 py-2"
+            >
+              Yes, {confirmModal.type === 'end' ? 'End' : 'Cancel'} Meeting
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }
